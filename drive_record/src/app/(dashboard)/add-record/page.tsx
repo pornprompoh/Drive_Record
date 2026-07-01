@@ -1,8 +1,15 @@
+import RecordForm from '@/components/features/RecordForm';
+
 export default function AddRecordPage() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] gap-4">
-      <h1 className="text-2xl font-bold text-blue-600">➕ หน้าบันทึกข้อมูล</h1>
-      <p className="text-gray-500">เดี๋ยวเราจะมาทำฟอร์มกรอกรายรับ-รายจ่ายที่นี่</p>
+    <div className="pt-6 pb-4">
+      <div className="px-4 mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">เพิ่มรายการใหม่</h1>
+        <p className="text-sm text-gray-500">จดบันทึกรายรับ-รายจ่ายของวันนี้</p>
+      </div>
+
+      {/* เรียกใช้งาน Component ฟอร์มที่เราเพิ่งสร้าง */}
+      <RecordForm />
     </div>
   );
 }
