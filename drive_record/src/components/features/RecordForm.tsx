@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { CheckCircle2 } from 'lucide-react';
+import { useRecordStore } from '@/store/useRecordStore';
+import { useRouter } from 'next/navigation';
 
 // 1. กำหนดกฎของข้อมูล (Validation Schema) ด้วย Zod
 const formSchema = z.object({
@@ -28,6 +30,8 @@ const PLATFORMS = [
 
 export default function RecordForm() {
   // 2. ตั้งค่า React Hook Form
+  const addRecord = useRecordStore((state) => state.addRecord);
+  const router = useRouter();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -44,9 +48,13 @@ export default function RecordForm() {
 
   // 3. ฟังก์ชันเมื่อกดปุ่มบันทึก
   function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log('ข้อมูลที่บันทึก:', values);
-    alert('บันทึกข้อมูลสำเร็จ! (เช็คข้อมูลใน Console)');
-    form.reset(); // ล้างฟอร์ม
+    addRecord(values);
+
+    alert('บันทึกข้อมูลสำเร็จ!');
+    form.reset();
+
+    router.push('/');
+
   }
 
   return (
