@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { CheckCircle2 } from 'lucide-react';
 import { useRecordStore } from '@/store/useRecordStore';
 import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 // 1. กำหนดกฎของข้อมูล (Validation Schema) ด้วย Zod
 const formSchema = z.object({
@@ -47,14 +48,42 @@ export default function RecordForm() {
   const hasFuel = form.watch('hasFuel');
 
   // 3. ฟังก์ชันเมื่อกดปุ่มบันทึก
-  function onSubmit(values: z.infer<typeof formSchema>) {
+async function onSubmit(values: z.infer<typeof formSchema>) {
+    
+    // 1. ดึงข้อมูลผู้ใช้ที่ล็อกอินอยู่ปัจจุบันจาก Supabase Auth
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      alert('เซสชันหมดอายุ กรุณาล็อกอินใหม่');
+      router.push('/login');
+      return;
+    }
+
+    // 2. ส่งข้อมูลเข้า Zustand เพื่ออัปเดตหน้าจอทันที (Optimistic UI)
     addRecord(values);
 
-    alert('บันทึกข้อมูลสำเร็จ!');
-    form.reset();
+    // 3. ส่งข้อมูลไปเซฟที่ Supabase โดยพ่วง user_id ของคนที่ล็อกอินไปด้วย
+    const { error } = await supabase
+      .from('records')
+      .insert([
+        {
+          platform: values.platform,
+          income: values.income,
+          has_fuel: values.hasFuel,
+          fuel_amount: values.fuelAmount || 0,
+          note: values.note,
+          user_id: user.id // 🌟 เพิ่มบรรทัดนี้เพื่อผูกข้อมูลเข้ากับไอดีผู้ใช้
+        }
+      ]);
 
-    router.push('/');
+    if (error) {
+      console.error('Error inserting data:', error.message);
+      alert('เกิดข้อผิดพลาดในการเซฟข้อมูล');
+      return;
+    }
 
+    form.reset(); 
+    router.push('/'); 
   }
 
   return (

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
+import { supabase } from '@/lib/supabase'; // นำเข้าตัวเชื่อมต่อฐานข้อมูล
 
-// 1. กำหนดรูปร่างของข้อมูล 1 รายการ
 export type RecordItem = {
   id: string;
   platform: string;
@@ -11,29 +11,69 @@ export type RecordItem = {
   createdAt: string;
 };
 
-// 2. กำหนดว่าใน Store นี้มีข้อมูลและฟังก์ชันอะไรบ้าง
 interface RecordState {
   records: RecordItem[];
   addRecord: (record: Omit<RecordItem, 'id' | 'createdAt'>) => void;
+  deleteRecord: (id: string) => Promise<void>; // เปลี่ยนเป็น Promise เพราะต้องรอฐานข้อมูล
+  fetchRecords: () => Promise<void>; // เพิ่มฟังก์ชันโหลดข้อมูล
 }
 
-// 3. สร้าง Store
 export const useRecordStore = create<RecordState>((set) => ({
-  records: [], // เริ่มต้นด้วยอาร์เรย์ว่างๆ
+  records: [],
   
-  // ฟังก์ชันสำหรับเพิ่มข้อมูลใหม่
+  // 📥 ฟังก์ชันโหลดข้อมูลจาก Supabase
+  fetchRecords: async () => {
+    const { data, error } = await supabase
+      .from('records')
+      .select('*')
+      .order('created_at', { ascending: false }); // เรียงจากรายการล่าสุดขึ้นก่อน
+
+    if (error) {
+      console.error('โหลดข้อมูลพลาด:', error.message);
+      return;
+    }
+
+    if (data) {
+      // แปลงชื่อคอลัมน์จากฐานข้อมูล (snake_case) ให้ตรงกับโค้ดเรา (camelCase)
+      const formattedData: RecordItem[] = data.map((item) => ({
+        id: item.id,
+        platform: item.platform,
+        income: item.income,
+        hasFuel: item.has_fuel,
+        fuelAmount: item.fuel_amount,
+        note: item.note,
+        createdAt: item.created_at,
+      }));
+      
+      set({ records: formattedData });
+    }
+  },
+
+  // ➕ ฟังก์ชันเพิ่มข้อมูล (ใช้หน้าจอหลอกไปก่อน ส่วนการบันทึกจริงเราทำไว้ที่ไฟล์ฟอร์มแล้ว)
   addRecord: (record) => set((state) => ({
     records: [
       {
         ...record,
-        id: crypto.randomUUID(), // สร้าง ID มั่วๆ ไม่ซ้ำกัน
-        createdAt: new Date().toISOString(), // ประทับเวลาปัจจุบัน
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
       },
-      ...state.records, // เอาข้อมูลใหม่ต่อหน้าข้อมูลเก่า (ล่าสุดอยู่บน)
+      ...state.records,
     ]
   })),
-  
-  deleteRecord: (id) => set((state) => ({
-    records: state.records.filter((record) => record.id !== id)
-  })),
+
+  // 🗑️ ฟังก์ชันลบข้อมูล
+  deleteRecord: async (id) => {
+    // 1. ลบออกจากหน้าจอผู้ใช้ทันที (Optimistic UI) ให้แอปรู้สึกเร็ว
+    set((state) => ({
+      records: state.records.filter((record) => record.id !== id)
+    }));
+    
+    // 2. ส่งคำสั่งไปลบที่ฐานข้อมูลจริงๆ
+    const { error } = await supabase.from('records').delete().eq('id', id);
+    
+    if (error) {
+      console.error('ลบข้อมูลพลาด:', error.message);
+      alert('เกิดข้อผิดพลาดในการลบข้อมูล โปรดรีเฟรชหน้าจอ');
+    }
+  },
 }));
